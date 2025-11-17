@@ -10,6 +10,13 @@ Projeto em FastAPI com SQLAlchemy (SQLite) para gerenciar usuários (sindicose/m
 - Dependências listadas no seu ambiente virtual (venv)
 
 ## Instalação (local)
+0. Clone o repositório e entre na pasta do projeto:
+
+```bash
+git clone <repo-url>
+cd apiCondominioPy
+```
+
 1. Crie e ative um virtualenv (escolha conforme seu sistema):
 
 Linux / macOS (bash):
