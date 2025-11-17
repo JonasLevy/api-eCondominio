@@ -1,0 +1,18 @@
+
+
+pip install alembic
+alembic init alembic
+alembic revision --autogenerate -m "criar tabelas iniciais"
+alembic upgrade head
+
+apaga o banco
+rm -rf alembic/versions/* apagas as migrations
+alembic revision --autogenerate -m "criar tabelas iniciais"
+alembic upgrade head
+
+
+
+#rodar no terminak uvicorn main:app --reload
+
+
+
