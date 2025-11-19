@@ -28,6 +28,56 @@ async def criarMorador(morador_schema:CriarMoradorSchema, session:Session=Depend
         session.add(moradorCOndominio)
         session.commit()
         return {"mensagen": "Morador criado"}
+
+@sindico_router.post("/editarmorador/{idMorador}")
+async def criarMorador(morador_schema:CriarMoradorSchema, idMorador:int, session:Session=Depends(pegarSessao), sindico:Usuario=Depends(verificarToken)):
+    
+    usuarioMorador = session.query(Usuario).filter(Usuario.id == idMorador).first()
+    moradorCondominio = session.query(MoradorCondominio).filter(MoradorCondominio.idMorador == idMorador).first()
+    sindicoCondominio = session.query(SindicoCondominio).filter(SindicoCondominio.idUsuario == sindico.id, SindicoCondominio.idCondominio == moradorCondominio.idCondominio).first()
+        
+    if(sindico.tipo !="sindico" or not sindicoCondominio ):
+        raise HTTPException(status_code=401, detail="Não autorizado!")
+    
+    if not int(idMorador):
+        raise HTTPException(status_code=400, detail="id usuario Obrigatorio!")
+    
+    checkEmail = session.query(Usuario).filter(Usuario.email == morador_schema.email, Usuario.id != idMorador).first()
+    
+    if checkEmail:
+        raise HTTPException(status_code=400, detail="Email já cadastrado!")
+          
+    
+    
+    if not usuarioMorador:
+        raise HTTPException(status_code=404, detail="Morador não cadastrado!")
+    else:
+        
+        if morador_schema.nome != usuarioMorador.nome and morador_schema.nome is not None:
+            usuarioMorador.nome = morador_schema.nome
+        if morador_schema.telefone != usuarioMorador.telefone and morador_schema.telefone is not None:
+            usuarioMorador.telefone = morador_schema.telefone
+        if morador_schema.cpf != usuarioMorador.cpf and morador_schema.cpf is not None:
+            usuarioMorador.cpf = morador_schema.cpf
+        if morador_schema.email != usuarioMorador.email and morador_schema.email is not None:
+            usuarioMorador.email = morador_schema.email
+        if morador_schema.email != usuarioMorador.email and morador_schema.email is not None:
+            usuarioMorador.email = morador_schema.email
+        if morador_schema.senha and morador_schema.senha.strip() != "":
+            try:
+                senhaIgual = bcrypt_context.verify(morador_schema.senha, usuarioMorador.senha)
+            except Exception:
+                senhaIgual = False  # hash inválido no banco, força atualizar
+            if not senhaIgual:
+                senhaCrypto = bcrypt_context.hash(str(morador_schema.senha))
+                usuarioMorador.senha = senhaCrypto
+        if morador_schema.apartamento != moradorCondominio.apartamento and morador_schema.apartamento is not None:
+            moradorCondominio.apartamento = morador_schema.apartamento 
+        if morador_schema.torre != moradorCondominio.torre and morador_schema.torre is not None:
+            moradorCondominio.torre = morador_schema.torre 
+        session.commit()
+        return   {"mensagem": "deu bom"} 
+
     
 @sindico_router.post("/criarambiente")
 async def criarambiente(ambiente_schema:AmbienteCondominioSchema, session:Session=Depends(pegarSessao), usuario:Usuario=Depends(verificarToken)):

@@ -46,8 +46,8 @@ async def login(login_schema: LoginSchema, session: Session=Depends(pegarSessao)
                 "id": usuario.id,
                 "nome": usuario.nome,
                 "tipo": usuario.tipo,
-                "condominioMorador": condominioMorador,
-                "sindicoCondominio": sindicoCondominios
+                "moradorEmCondominiosList": condominioMorador,
+                "sindicoEmCondominiosList": sindicoCondominios
             } }
 
 @auth_router.post("/loginForm")
