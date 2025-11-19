@@ -3,9 +3,9 @@ from typing import Optional
 
 class UsuarioSchema(BaseModel):
     nome: str
+    telefone: str
     email: str
-    senha: str
-    ativo: Optional[bool]
+    cpf: str
     
     class Config:
         from_attributes = True
@@ -37,5 +37,20 @@ class AmbienteCondominioSchema(BaseModel):
 class MoradorCondominioSchema(BaseModel):
     idCondominio: int
     idMorador: int
+    apartamento: str
+    torre:str
     class Config:
         from_attributes = True
+        
+class CriarMoradorSchema(BaseModel):
+    nome: str
+    email: str
+    senha: str
+    cpf:str
+    telefone:str
+    idCondominio: int
+    apartamento: str
+    torre:str
+    class Config:
+        from_attributes = True
+        

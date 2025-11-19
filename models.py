@@ -14,9 +14,16 @@ class Usuario(Base):
     senha= Column("senha", String, nullable=False)
     ativo= Column("ativo", Boolean, default=True)
     tipo=Column("tipo", String, nullable=False)
+    telefone=Column("telefone", String, nullable=True)
+    cpf=Column("cpf", String, nullable=True)
+    condominiosMorador= relationship("MoradorCondominio", cascade="all, delete")
+    sindicoCondominio= relationship("SindicoCondominio", cascade="all, delete")
     
-    def __init__(self, nome, email, senha, tipo):
+    
+    def __init__(self, nome, cpf, telefone, email, senha, tipo):
         self.nome = nome
+        self.telefone = telefone
+        self.cpf = cpf
         self.email = email
         self.senha = senha
         self.tipo = tipo
@@ -28,6 +35,7 @@ class Condominio(Base):
     nome = Column("nome", String, nullable=False)
     endereco= Column("endereco", String, nullable=False)
     moradores = relationship("MoradorCondominio" , cascade="all, delete")
+    ambientes = relationship("AmbientesCondominio", cascade="all, delete")
     
     def __init__(self,nome,endereco):
         self.nome = nome
@@ -65,7 +73,11 @@ class MoradorCondominio(Base):
     id = Column("id", Integer, autoincrement=True, primary_key=True)
     idCondominio = Column("id_condominio", ForeignKey("condominios.id"))
     idMorador = Column("id_morador", ForeignKey("usuarios.id"))
+    apartamento = Column("apartamento", String, nullable=True)
+    torre = Column("torre", String, nullable=True)
     
-    def __init__(self, idCondominio, idMorador):
+    def __init__(self, idCondominio, idMorador, apartamento, torre):
         self.idCondominio = idCondominio 
         self.idMorador = idMorador 
+        self.apartamento = apartamento
+        self.torre = torre  
