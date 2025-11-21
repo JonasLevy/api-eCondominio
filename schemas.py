@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional
+from datetime import date, time
 
 class UsuarioSchema(BaseModel):
     nome: str
@@ -30,6 +31,7 @@ class LoginSchema(BaseModel):
         
 class AmbienteCondominioSchema(BaseModel):
     nome: str
+    info: Optional[str] = None
     idCondominio: int
     class Config:
         from_attributes = True
@@ -51,6 +53,17 @@ class CriarMoradorSchema(BaseModel):
     idCondominio: int
     apartamento: str
     torre:str
+    class Config:
+        from_attributes = True
+        
+class CriarReservaSchema(BaseModel):
+    idAmbiente: int
+    dataReserva: date
+    horaInicio: time
+    horaFim: time
+    status: str
+    info: Optional[str] = None
+    
     class Config:
         from_attributes = True
         

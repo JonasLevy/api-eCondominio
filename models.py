@@ -1,9 +1,19 @@
-from sqlalchemy import create_engine, Column, String, Integer, Boolean, Float, ForeignKey, DateTime, func, ForeignKey
+from sqlalchemy import create_engine, Column, String, Integer, Boolean, Float, ForeignKey, DateTime, func, ForeignKey, Date, Time
 from sqlalchemy.orm import declarative_base, relationship
 
 db= create_engine("sqlite:///banco.db")
 
 Base = declarative_base()
+
+class Status(Base):
+    __tablename__ = "status"
+    
+    id= Column("id", Integer, autoincrement=True, primary_key=True)
+    nome= Column("nome", String, nullable=False)
+    tabela = Column("tabela", String, nullable=False)
+    
+    def __init__(self, nome):
+        self.nome = nome
 
 class Usuario(Base):
     __tablename__  = "usuarios"
@@ -61,11 +71,13 @@ class AmbientesCondominio(Base):
     
     id = Column("id", Integer, autoincrement=True, primary_key=True)
     nome = Column("nome", String, nullable=False)
+    info = Column("info", String, nullable= True)
     idCondominio = Column("id_condominio", ForeignKey("condominios.id"))
     
-    def __init__(self, idCondominio, nome):
+    def __init__(self, idCondominio, nome, info):
         self.idCondominio = idCondominio
         self.nome = nome
+        self.info = info
         
 class MoradorCondominio(Base):
     __tablename__ = "morador_condominio"
@@ -81,3 +93,25 @@ class MoradorCondominio(Base):
         self.idMorador = idMorador 
         self.apartamento = apartamento
         self.torre = torre  
+        
+class ReservaAmbiente(Base):
+    __tablename__ = "reserva_ambiente"
+    
+    id = Column("id", Integer, autoincrement=True, primary_key=True)
+    idAmbiente = Column("id_ambiente", ForeignKey("ambientes_condominio.id"))
+    idMorador = Column("id_morador", ForeignKey("usuarios.id"))
+    idCondominio = Column("id_condominio", ForeignKey("condominios.id"))
+    dataReserva = Column("data_reserva", Date, nullable=False)
+    horaInicio = Column("hora_inicio", Time, nullable=False)
+    horaFim = Column("hora_fim", Time, nullable=False)
+    info = Column("info", String, nullable=True)
+    status = Column("status", String, default="pendente")
+    
+    def __init__(self, idAmbiente, idMorador, dataReserva, horaInicio, horaFim, idCondominio, info):
+        self.idCondominio = idCondominio
+        self.idAmbiente = idAmbiente
+        self.idMorador = idMorador
+        self.dataReserva = dataReserva
+        self.horaInicio = horaInicio
+        self.horaFim = horaFim
+        self.info = info

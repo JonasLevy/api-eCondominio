@@ -65,7 +65,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES=60
 4. Rode a aplicação:
 
 ```bash
-uvicorn main:app --reload
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 A API ficará disponível em `http://127.0.0.1:8000`.

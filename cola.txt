@@ -2,8 +2,10 @@
 
 pip install alembic
 alembic init alembic
-alembic revision --autogenerate -m "criar tabelas iniciais"
+alembic revision --autogenerate -m "criar tabelas reservas"
 alembic upgrade head
+
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 apaga o banco
 rm -rf alembic/versions/* apagas as migrations
