@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from schemas import UsuarioSchema, CondominiosSchema, AmbienteCondominioSchema, CriarMoradorSchema, CriarReservaSchema
+from schemas import UsuarioSchema, CondominiosSchema, AmbienteCondominioSchema, CriarMoradorSchema, ReservaSchema, AlterarStatus
 from dependeces import pegarSessao, verificarToken
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -205,10 +205,11 @@ async def getAmbientes(idcondominio:int, session:Session=Depends(pegarSessao), u
 
 ####################### RESERVAS DE AMBIENTE ##############################    
 @sindico_router.post("/criarreserva/{idCondominio}")
-async def criarreserva(criarReserva:CriarReservaSchema, idCondominio: int ,session:Session=Depends(pegarSessao), usuario:Usuario=Depends(verificarToken)):
+async def criarreserva(criarReserva:ReservaSchema, idCondominio: int ,session:Session=Depends(pegarSessao), usuario:Usuario=Depends(verificarToken)):
     
     if idCondominio in listaDeValoresInvalidos:
         raise HTTPException(status_code=400, detail="id Condomio Obrigatorio!")
+
     sindico = session.query(SindicoCondominio).filter(SindicoCondominio.idUsuario == usuario.id, SindicoCondominio.idCondominio == idCondominio).first()
     if not sindico:
         raise HTTPException(status_code=400, detail="Não é sindico deste Condominio")
@@ -237,3 +238,60 @@ async def criarreserva(criarReserva:CriarReservaSchema, idCondominio: int ,sessi
             "Data da Reserva:": criarReserva.dataReserva,
             "Hora Início:": criarReserva.horaInicio,
             "Hora Fim:": criarReserva.horaFim}
+    
+@sindico_router.get("/reservas/{idCondominio}")
+async def reservas(idCondominio:int, usuario:Usuario=Depends(verificarToken), sessaoDb:Session=Depends(pegarSessao)):
+    if usuario.tipo != "sindico":
+        raise HTTPException(status_code=400, detail="Acesso negado!")
+    
+    sindicoCondominio = sessaoDb.query(SindicoCondominio).filter(SindicoCondominio.idCondominio == idCondominio, SindicoCondominio.idUsuario == usuario.id).first()
+    
+    if not sindicoCondominio:
+        raise HTTPException(status_code=400, detail="Não é sindico deste Condominio")
+    
+    reservas_rows = sessaoDb.query(
+        AmbientesCondominio.nome.label("Ambiente"),
+        Usuario.nome,
+        MoradorCondominio.apartamento,
+        ReservaAmbiente
+    ).join(AmbientesCondominio, AmbientesCondominio.id == ReservaAmbiente.idAmbiente).join(MoradorCondominio, MoradorCondominio.idMorador == ReservaAmbiente.idMorador).join(Usuario, Usuario.id == ReservaAmbiente.idMorador).all()
+    
+    reservas_rows2 = sessaoDb.query(
+        AmbientesCondominio.nome.label("Ambiente"),
+        Usuario.nome,
+        ReservaAmbiente
+    ).join(AmbientesCondominio, AmbientesCondominio.id == ReservaAmbiente.idAmbiente).join(SindicoCondominio,SindicoCondominio.idUsuario == ReservaAmbiente.idMorador).join(Usuario, Usuario.id == ReservaAmbiente.idMorador).all()
+
+    reservas = [row._asdict() for row in [*reservas_rows,*reservas_rows2]]
+    return reservas
+
+@sindico_router.patch("status/{idCondominio}/{idReserva}")
+async def alterarStatus(body:AlterarStatus, idCondominio:int, idReserva:int, sessaoDb:Session=Depends(pegarSessao), usuario:Usuario=Depends(verificarToken)):
+    if usuario.tipo != "sindico":
+        raise HTTPException(status_code=400, detail="Acesso negado!")
+    
+    reserva = sessaoDb.query(ReservaAmbiente).filter(ReservaAmbiente.id == idReserva).first()
+    
+    sindicoCondominio = sessaoDb.query(SindicoCondominio).filter(SindicoCondominio.idCondominio == idCondominio, SindicoCondominio.idUsuario == usuario.id).first()
+    
+    if not sindicoCondominio or sindicoCondominio.idCondominio != reserva.idCondominio:
+        raise HTTPException(status_code=400, detail="Não é sindico deste Condominio")
+    
+    if not reserva:
+        raise HTTPException(status_code=404, detail="Reserva não encontrada")
+    
+    if (body.status in listaDeValoresInvalidos) and (body.info in listaDeValoresInvalidos):
+        raise HTTPException(status_code=422, detail="Body mal formatado")
+    
+    reserva.info = body.info
+    reserva.status = body.status
+    sessaoDb.commit()
+    
+    return { "mensagem": "Status alterado",
+            "reserva": reserva.id,
+            "status": body.status,
+            "info": body.info}
+    
+#@sindico_router.post("/criarvisita")
+
+        

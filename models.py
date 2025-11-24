@@ -87,6 +87,7 @@ class MoradorCondominio(Base):
     idMorador = Column("id_morador", ForeignKey("usuarios.id"))
     apartamento = Column("apartamento", String, nullable=True)
     torre = Column("torre", String, nullable=True)
+    morador = relationship("Usuario", cascade="all, delete")
     
     def __init__(self, idCondominio, idMorador, apartamento, torre):
         self.idCondominio = idCondominio 
@@ -114,4 +115,35 @@ class ReservaAmbiente(Base):
         self.dataReserva = dataReserva
         self.horaInicio = horaInicio
         self.horaFim = horaFim
+        self.info = info
+        
+class Pessoas(Base):
+    __tablename__  = "pessoas"
+    
+    id= Column("id", Integer, autoincrement=True, primary_key=True)
+    nome= Column("nome", String, nullable=False)
+    ativo= Column("ativo", Boolean, default=False)
+    telefone=Column("telefone", String, nullable=False)
+    cpf=Column("cpf", String, nullable=False)    
+    
+    def __init__(self, nome, cpf, telefone):
+        self.nome = nome
+        self.telefone = telefone
+        self.cpf = cpf
+
+class Visitas(Base):
+    __tablename__  = "visitas"
+    
+    id= Column("id", Integer, autoincrement=True, primary_key=True)
+    idPessoa= Column("id_pessoa", Integer, nullable=False)
+    idMorador= Column("id_usuario",  String, nullable=False)
+    apartamento = Column("apto", String, nullable=False)
+    idCodominio = Column("id_condominio", Integer, nullable=False)
+    info = Column("info", String, nullable=False)
+    
+    def __init__(self, idPessoa, idMorador, apartamento, idCodominio, info):
+        self.idPessoa = idPessoa
+        self.idMorador = idMorador
+        self.apartamento = apartamento
+        self.idCodominio = idCodominio
         self.info = info

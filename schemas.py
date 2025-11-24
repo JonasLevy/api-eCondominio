@@ -7,6 +7,7 @@ class UsuarioSchema(BaseModel):
     telefone: str
     email: str
     cpf: str
+    senha:str
     
     class Config:
         from_attributes = True
@@ -56,7 +57,7 @@ class CriarMoradorSchema(BaseModel):
     class Config:
         from_attributes = True
         
-class CriarReservaSchema(BaseModel):
+class ReservaSchema(BaseModel):
     idAmbiente: int
     dataReserva: date
     horaInicio: time
@@ -66,4 +67,13 @@ class CriarReservaSchema(BaseModel):
     
     class Config:
         from_attributes = True
+        
+class AlterarStatus(BaseModel):
+    status: str
+    info: str
+    
+    class Config:
+        from_attributes = True
+        
+
         

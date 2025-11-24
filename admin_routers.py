@@ -17,7 +17,7 @@ async def create(usuario_schema:UsuarioSchema, session:Session=Depends(pegarSess
         raise HTTPException(status_code=400, detail="Email já cadastrado!")
     else:
         senhaCrypt = bcrypt_context.hash(str(usuario_schema.senha))
-        novoUsuario= Usuario(usuario_schema.nome, usuario_schema.email, senhaCrypt, "sindico")
+        novoUsuario= Usuario(usuario_schema.nome, usuario_schema.cpf, usuario_schema.telefone, usuario_schema.email, senhaCrypt, "sindico")
         session.add(novoUsuario)
         session.commit()
         return {"mensagen": "Usuario criado"}
