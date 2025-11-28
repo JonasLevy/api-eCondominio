@@ -11,6 +11,7 @@ class UsuarioSchema(BaseModel):
     
     class Config:
         from_attributes = True
+
         
 class CondominiosSchema(BaseModel):
     nome: str
@@ -36,6 +37,12 @@ class AmbienteCondominioSchema(BaseModel):
     idCondominio: int
     class Config:
         from_attributes = True
+
+class AmbienteCondominioEditarSchema(BaseModel):
+    nome: Optional[str] = None
+    info: Optional[str] = None
+    class Config:
+        from_attributes = True
         
 class MoradorCondominioSchema(BaseModel):
     idCondominio: int
@@ -56,6 +63,18 @@ class CriarMoradorSchema(BaseModel):
     torre:str
     class Config:
         from_attributes = True
+    
+class EditarMoradorSchema(BaseModel):
+    idCondominio: int
+    nome: str | None = None
+    email: str | None = None
+    senha: str | None = None
+    cpf:str | None = None
+    telefone:str | None = None
+    apartamento: str | None = None
+    torre:str | None = None
+    class Config:
+        from_attributes = True
         
 class ReservaSchema(BaseModel):
     idAmbiente: int
@@ -68,6 +87,18 @@ class ReservaSchema(BaseModel):
     class Config:
         from_attributes = True
         
+class EditarReservaSchema(BaseModel):
+    idAmbiente: int | None = None
+    dataReserva: date | None = None
+    horaInicio: time | None = None
+    horaFim: time | None = None
+    status: str | None = None
+    info: str | None = None
+    
+    class Config:
+        from_attributes = True
+
+        
 class AlterarStatus(BaseModel):
     status: str
     info: str
@@ -75,5 +106,64 @@ class AlterarStatus(BaseModel):
     class Config:
         from_attributes = True
         
+class VisitaSchema(BaseModel):
+    nome: str
+    telefone: str
+    cpf: str
+    idMorador: int
+    idCodominio: int
+    info: str
+    dataVisita: date
+    horaVisita: time 
+    
+    class Config:
+        from_attributes = True    
 
+class ServicoSchema(BaseModel):
+    idUsuario : int
+    idCodominio : int
+    idAmbiente : int
+    apartamento : str
+    torre :str
+    empresa : str
+    dataInicio : date
+    dataFim : date
+    horaInicio : time
+    horaFim :time
+    info : str
+    status : str
+    class Config:
+        from_attributes = True
+
+class PrestadorServicoSchema(BaseModel):
+    nome:Optional[str] = None
+    cpf:Optional[str] = None
+    telefone: Optional[str] = None
+    idPessoa: Optional[str] = None
+    idServico: int
+    class Config:
+        from_attributes = True
         
+class ServicoEditarSchema(BaseModel):
+    idAmbiente: int | None = None
+    apartamento: str | None = None
+    torre: str | None = None
+    empresa: str | None = None
+    dataInicio: date | None = None
+    dataFim: date | None = None
+    horaInicio: time | None = None
+    horaFim: time | None = None
+    info: str | None = None
+    status: str | None = None
+
+    class Config:
+        from_attributes = True
+
+class EncomendaSchema(BaseModel):
+    idCodominio: int
+    info: str
+    tipo: str
+    entregue: str
+    class Config:
+        from_attributes = True
+       
