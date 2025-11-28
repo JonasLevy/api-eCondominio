@@ -35,9 +35,30 @@ async def login(login_schema: LoginSchema, session: Session=Depends(pegarSessao)
         raise HTTPException(status_code=400, detail="Usuario ou senha Invalido")
     else:
         sindicoCondominios = session.query(Condominio).join(SindicoCondominio).filter(SindicoCondominio.idUsuario == usuario.id ).all()
-        condominioMorador = session.query(Condominio).join(MoradorCondominio).filter(MoradorCondominio.idMorador == Condominio.id ).all()
+        
+        condominioMorador = (
+            session.query(
+                Condominio.nome,
+                MoradorCondominio.apartamento,
+                MoradorCondominio.torre,
+                Condominio.endereco,
+                Condominio.id,
+                MoradorCondominio.id.label("idMoradorCondominio")
+            )
+            .join(
+                MoradorCondominio,
+                Condominio.id == MoradorCondominio.idCondominio
+            )
+            .filter(MoradorCondominio.idMorador == usuario.id)
+            .all()
+        )
+
+        listadeCondominiosMorador = [row._asdict() for row in condominioMorador]
+        
         token = criarToken(usuario.id)
         refreshToken = criarToken(usuario.id, duracaoToken=timedelta(days=7))
+        
+        
         return{
             "access_token": token,
             "refresh_token": refreshToken,
@@ -46,7 +67,7 @@ async def login(login_schema: LoginSchema, session: Session=Depends(pegarSessao)
                 "id": usuario.id,
                 "nome": usuario.nome,
                 "tipo": usuario.tipo,
-                "moradorEmCondominiosList": condominioMorador,
+                "moradorEmCondominiosList": listadeCondominiosMorador,
                 "sindicoEmCondominiosList": sindicoCondominios
             } }
 

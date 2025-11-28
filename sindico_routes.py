@@ -1,81 +1,85 @@
 from fastapi import APIRouter
-from schemas import UsuarioSchema, CondominiosSchema, AmbienteCondominioSchema, CriarMoradorSchema, ReservaSchema, AlterarStatus
-from dependeces import pegarSessao, verificarToken
+from schemas import UsuarioSchema, CondominiosSchema, AmbienteCondominioSchema, CriarMoradorSchema, ReservaSchema, EditarReservaSchema, VisitaSchema, ServicoSchema, ServicoEditarSchema, EditarMoradorSchema, AmbienteCondominioEditarSchema
+from dependeces import pegarSessao, verificarTokenSindico
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
-from models import Usuario, SindicoCondominio, MoradorCondominio, ReservaAmbiente, AmbientesCondominio, Condominio
+from models import Usuario, SindicoCondominio, MoradorCondominio, ReservaAmbiente, AmbientesCondominio, Condominio, Pessoas, Visitas, Servicos
 from main import bcrypt_context
+from datetime import date, time
 
-sindico_router = APIRouter(prefix="/sindico", tags=["Sindico"], dependencies=[Depends(verificarToken)])
+sindico_router = APIRouter(prefix="/sindico", tags=["Sindico"], dependencies=[Depends(verificarTokenSindico)])
 
-listaDeValoresInvalidos = [None, "", "\n", "\t"]
+listaDeValoresInvalidos = [None, "", "\n", "\t", 0, "string"]
 
 ####################### MORADORES ##############################
-@sindico_router.post("/criarmorador")
-async def criarMorador(morador_schema:CriarMoradorSchema, session:Session=Depends(pegarSessao), sindico:Usuario=Depends(verificarToken)):
+@sindico_router.post("/morador")
+async def criarMorador(body:CriarMoradorSchema, sessaoDb:Session=Depends(pegarSessao), usuario:Usuario=Depends(verificarTokenSindico)):
     
-    if(sindico.tipo !="sindico" ):
-        raise HTTPException(status_code=400, detail="Não autorizado")
+    usuario.verificaCondominio(body.idCondominio)
     
-    usuarioMorador = session.query(Usuario).filter(Usuario.email == morador_schema.email).first()
-    if usuarioMorador:
+    verificaEmailCadastro = sessaoDb.query(Usuario).filter(Usuario.email == body.email).first()
+    
+    if verificaEmailCadastro:
         raise HTTPException(status_code=400, detail="Email já cadastrado!")
-    elif not int(morador_schema.idCondominio):
+    
+    elif not int(body.idCondominio): #verificar se é numero e !=0
         raise HTTPException(status_code=400, detail="id Condomio Obrigatorio!")
     else:
-        senhaCrypt = bcrypt_context.hash(str(morador_schema.senha))
-        novoUsuario= Usuario(morador_schema.nome, morador_schema.cpf, morador_schema.telefone, morador_schema.email, senhaCrypt, "morador")
-        session.add(novoUsuario)
-        session.flush()
-        moradorCOndominio = MoradorCondominio(morador_schema.idCondominio ,novoUsuario.id, morador_schema.apartamento, morador_schema.torre)
-        session.add(moradorCOndominio)
-        session.commit()
-        return {"mensagen": "Morador criado"}
-
-@sindico_router.post("/editarmorador/{idMorador}")
-async def criarMorador(morador_schema:CriarMoradorSchema, idMorador:int, session:Session=Depends(pegarSessao), sindico:Usuario=Depends(verificarToken)):
-    
-    usuarioMorador = session.query(Usuario).filter(Usuario.id == idMorador).first()
-    moradorCondominio = session.query(MoradorCondominio).filter(MoradorCondominio.idMorador == idMorador).first()
-    sindicoCondominio = session.query(SindicoCondominio).filter(SindicoCondominio.idUsuario == sindico.id, SindicoCondominio.idCondominio == moradorCondominio.idCondominio).first()
+        senhaCrypt = bcrypt_context.hash(str(body.senha))
+        novoUsuario= Usuario(body.nome, body.cpf, body.telefone, body.email, senhaCrypt, "morador")
+        sessaoDb.add(novoUsuario)
+        sessaoDb.flush()
+        moradorCOndominio = MoradorCondominio(body.idCondominio ,novoUsuario.id, body.apartamento, body.torre)
+        sessaoDb.add(moradorCOndominio)
+        sessaoDb.commit()
+        sessaoDb.refresh(moradorCOndominio)
         
-    if(sindico.tipo !="sindico" or not sindicoCondominio ):
-        raise HTTPException(status_code=401, detail="Não autorizado!")
+        
+        return {"mensagen": "Morador criado",
+                "nomeUsuario": novoUsuario.nome,
+                "morador": moradorCOndominio
+                }
+
+@sindico_router.patch("/morador/{idMoradorCondominio}")
+async def criarMorador(body:EditarMoradorSchema, idMoradorCondominio:int, session:Session=Depends(pegarSessao), usuario:Usuario=Depends(verificarTokenSindico)):
     
-    if not int(idMorador):
-        raise HTTPException(status_code=400, detail="id usuario Obrigatorio!")
+    moradorCondominio = session.query(MoradorCondominio).filter(MoradorCondominio.id == idMoradorCondominio).first()
+    if not moradorCondominio:
+        raise HTTPException(status_code=404, detail="Morador não cadastrado!")
     
-    checkEmail = session.query(Usuario).filter(Usuario.email == morador_schema.email, Usuario.id != idMorador).first()
+    verificaSindicoMorador = usuario.verificaCondominio(moradorCondominio.idCondominio)
+    if not verificaSindicoMorador:
+        raise HTTPException(status_code=403, detail="Acesso negado: não é síndico deste condomínio")
+    
+    usuarioMorador = session.query(Usuario).filter(Usuario.id == moradorCondominio.idMorador).first()
+    
+    checkEmail = session.query(Usuario).filter(Usuario.email == body.email, Usuario.id != moradorCondominio.idMorador).first()
     
     if checkEmail:
         raise HTTPException(status_code=400, detail="Email já cadastrado!")
-          
-    if not usuarioMorador:
-        raise HTTPException(status_code=404, detail="Morador não cadastrado!")
-    else:
-        
-        if morador_schema.nome != usuarioMorador.nome and morador_schema.nome.strip()!="":
-            usuarioMorador.nome = morador_schema.nome
-        if morador_schema.telefone != usuarioMorador.telefone and morador_schema.telefone.strip()!="":
-            usuarioMorador.telefone = morador_schema.telefone
-        if morador_schema.cpf != usuarioMorador.cpf and morador_schema.cpf.strip()!="":
-            usuarioMorador.cpf = morador_schema.cpf
-        if morador_schema.email != usuarioMorador.email and morador_schema.email.strip()!="":
-            usuarioMorador.email = morador_schema.email
-        if morador_schema.email != usuarioMorador.email and morador_schema.email.strip()!="":
-            usuarioMorador.email = morador_schema.email
-        if morador_schema.senha and morador_schema.senha.strip() != "":
+    
+    dados = body.model_dump(exclude_unset=True, exclude_none=True) 
+
+    for campo, valor in dados.items():
+
+        # --- Tratamento especial da senha ---
+        if campo == "senha":
+            if valor in listaDeValoresInvalidos:
+                continue  # senha vazia -> não atualizar
+
             try:
-                senhaIgual = bcrypt_context.verify(morador_schema.senha, usuarioMorador.senha)
+                senhaIgual = bcrypt_context.verify(valor, usuarioMorador.senha)
             except Exception:
-                senhaIgual = False  # hash inválido no banco, força atualizar
+                senhaIgual = False  # hash antigo/ruim -> força atualizar
+
             if not senhaIgual:
-                senhaCrypto = bcrypt_context.hash(str(morador_schema.senha))
-                usuarioMorador.senha = senhaCrypto
-        if morador_schema.apartamento != moradorCondominio.apartamento and morador_schema.apartamento.strip()!="":
-            moradorCondominio.apartamento = morador_schema.apartamento 
-        if morador_schema.torre != moradorCondominio.torre and morador_schema.torre.strip()!="":
-            moradorCondominio.torre = morador_schema.torre 
+                usuarioMorador.senha = bcrypt_context.hash(str(valor))
+            
+            continue  # não deixar cair no setattr
+
+        if valor not in listaDeValoresInvalidos:
+            setattr(usuarioMorador, campo, valor)
+        
         session.commit()
         return   {"mensagem": "Morador atualizado com sucesso!",
                   "nome": usuarioMorador.nome,
@@ -83,51 +87,31 @@ async def criarMorador(morador_schema:CriarMoradorSchema, idMorador:int, session
                   "apartamento": moradorCondominio.apartamento,
                   "torre": moradorCondominio.torre} 
 
-@sindico_router.get("/moradores/{idcondominio}")
-async def moradores(idcondominio:int,  session:Session=Depends(pegarSessao), usuario:Usuario=Depends(verificarToken)):
+@sindico_router.get("/morador/{idcondominio}")
+async def moradores(idcondominio:int, nome: str | None=None, apt: str | None=None, sessaoDb:Session=Depends(pegarSessao), usuario:Usuario=Depends(verificarTokenSindico)):
     
-    sindico = session.query(SindicoCondominio).filter(SindicoCondominio.idUsuario == usuario.id, SindicoCondominio.idCondominio == idcondominio).first()
+    sindicoDoCondominio = usuario.verificaCondominio(idcondominio)
     
-    condominio = session.query(Condominio).filter(Condominio.id == idcondominio).first()
-    
-    if not condominio:
-        raise HTTPException(status_code=404, detail="Condominio, não cadastrado")
-    if not sindico:
+    if not sindicoDoCondominio:
         raise HTTPException(status_code=403, detail="Acesso negado: não é síndico deste condomínio")
     
-    moradores_rows = (
-    session.query(
-        Usuario.nome,
-        Usuario.telefone,
-        Usuario.email,
-        MoradorCondominio.apartamento,
-        MoradorCondominio.torre,
-    )
-    .join(MoradorCondominio, MoradorCondominio.idMorador == Usuario.id)
-    .filter(MoradorCondominio.idCondominio == idcondominio)
-    .limit(10)
-    )
-
-    moradores_dict = [row._asdict() for row in moradores_rows]
-    return moradores_dict
-
-@sindico_router.get("/moradores/{idcondominio}/pesquisa")
-async def moradoresPesquisa(idcondominio:int,  session:Session=Depends(pegarSessao),
-                            nome: str | None=None, apt: str | None=None,
-                            usuario:Usuario=Depends(verificarToken)):
-    
-    sindico = session.query(SindicoCondominio).filter(SindicoCondominio.idUsuario == usuario.id, SindicoCondominio.idCondominio == idcondominio).first()
-    
-    condominio = session.query(Condominio).filter(Condominio.id == idcondominio).first()
-    
-    if not condominio:
-        raise HTTPException(status_code=404, detail="Condominio, não cadastrado")
-    if not sindico:
-        raise HTTPException(status_code=403, detail="Acesso negado: não é síndico deste condomínio")
+    if not nome or apt:
+        moradores_rows = (
+        sessaoDb.query(
+            Usuario.nome,
+            Usuario.telefone,
+            Usuario.email,
+            MoradorCondominio.apartamento,
+            MoradorCondominio.torre,
+        )
+        .join(MoradorCondominio, MoradorCondominio.idMorador == Usuario.id)
+        .filter(MoradorCondominio.idCondominio == idcondominio)
+        .limit(10)
+        )
     
     if nome:    
         moradores_rows = (
-            session.query(
+            sessaoDb.query(
                 Usuario.nome,
                 Usuario.telefone,
                 Usuario.email,
@@ -139,9 +123,10 @@ async def moradoresPesquisa(idcondominio:int,  session:Session=Depends(pegarSess
                     Usuario.nome.ilike(f"%{nome}%"))
             .all()
             )
-    if apt :    
+        
+    if apt:    
         moradores_rows = (
-            session.query(
+            sessaoDb.query(
                 Usuario.nome,
                 Usuario.telefone,
                 Usuario.email,
@@ -157,68 +142,64 @@ async def moradoresPesquisa(idcondominio:int,  session:Session=Depends(pegarSess
     moradores_dict = [row._asdict() for row in moradores_rows]
     return moradores_dict
 
-
 ####################### AMBIENTES ##############################    
-@sindico_router.post("/criarambiente")
-async def criarambiente(ambiente_schema:AmbienteCondominioSchema, session:Session=Depends(pegarSessao), usuario:Usuario=Depends(verificarToken)):
-    sindico = session.query(SindicoCondominio).filter(usuario.id == SindicoCondominio.idUsuario, ambiente_schema.idCondominio == SindicoCondominio.idCondominio).first()
-    if usuario.tipo != "sindico":
-        raise HTTPException(status_code=400, detail="Não autorizado")
-        
+@sindico_router.post("/ambiente")
+async def criarambiente(body:AmbienteCondominioSchema, sessaoDb:Session=Depends(pegarSessao), usuario:Usuario=Depends(verificarTokenSindico)):
+    
+    sindico = usuario.verificaCondominio(body.idCondominio)
+            
     if not sindico:
         raise HTTPException(status_code=400, detail="Não é sindico deste Condominio")
-    else:
-        ambiente = AmbientesCondominio(ambiente_schema.idCondominio ,ambiente_schema.nome, ambiente_schema.info)
-        session.add(ambiente)
-        session.commit()
-        return{"mensage":"ambiente criado com sucesso",
-               "nome": ambiente.nome,
-               "consominio": ambiente.idCondominio}
+    
+    ambiente = AmbientesCondominio(body.idCondominio ,body.nome, body.info)
+    sessaoDb.add(ambiente)
+    sessaoDb.commit()
+    return{"mensage":"ambiente criado com sucesso",
+            "nome": ambiente.nome,
+            "consominio": ambiente.condominio}
         
-@sindico_router.post("/editarambiente/{idcondominio}/{idAmbiente}")
-async def editarambiente(idcondominio: int, idAmbiente: int, ambiente_schema: AmbienteCondominioSchema, session: Session = Depends(pegarSessao), usuario: Usuario = Depends(verificarToken)):
-    sindico = session.query(SindicoCondominio).filter(SindicoCondominio.idUsuario == usuario.id, SindicoCondominio.idCondominio == idcondominio).first()
-    ambiente = session.query(AmbientesCondominio).filter(AmbientesCondominio.id == idAmbiente, AmbientesCondominio.idCondominio == idcondominio).first()
+@sindico_router.patch("/ambiente/{idAmbienteCondominio}")
+async def editarambiente(idAmbienteCondominio: int, body: AmbienteCondominioEditarSchema, session: Session = Depends(pegarSessao), usuario: Usuario = Depends(verificarTokenSindico)):
+    ambiente = session.query(AmbientesCondominio).filter(AmbientesCondominio.id== idAmbienteCondominio).first()
     if not ambiente:
-        raise HTTPException(status_code=400, detail="Ambiente não cadastrado")
-    if not sindico:
+        raise HTTPException(status_code=404, detail="Ambiente não encontrado")
+    
+    sindicodoCondominio = usuario.verificaCondominio(ambiente.idCondominio)
+    if not sindicodoCondominio:
         raise HTTPException(status_code=400, detail="Não é sindico deste Condominio")
-    if ambiente_schema.nome != ambiente.nome and ambiente_schema.nome.strip() != "":
-        ambiente.nome = ambiente_schema.nome
-    if ambiente_schema.info != ambiente.info and (ambiente_schema.info is not None):
-        ambiente.info = ambiente_schema.info
+    
+    dados = body.model_dump(exclude_none=True, exclude_unset=True)
+    for campo, valor in dados.items():
+        if valor not in listaDeValoresInvalidos:
+            setattr(ambiente, campo, valor)
+    
     session.commit()
+    session.refresh(ambiente)
     return{"mensage":"ambiente editado com sucesso",
-               "nome": ambiente.nome,
-               "consominio": ambiente.idCondominio} 
+               "ambiente": ambiente} 
 
-@sindico_router.get("/ambientes/{idcondominio}")
-async def getAmbientes(idcondominio:int, session:Session=Depends(pegarSessao), usuario:Usuario=Depends(verificarToken)):
-    sindico = session.query(SindicoCondominio).filter(SindicoCondominio.idUsuario == usuario.id, SindicoCondominio.idCondominio == idcondominio).first()
-    condominio = session.query(Condominio).filter(Condominio.id == idcondominio).first()
-    if not condominio:
-        raise HTTPException(status_code=400, detail="Condominio, não cadastrado")
-    if not sindico:
+@sindico_router.get("/ambiente/{idcondominio}")
+async def getAmbientes(idcondominio:int, session:Session=Depends(pegarSessao), usuario:Usuario=Depends(verificarTokenSindico)):
+    
+    sindicodoCondominio = usuario.verificaCondominio(idcondominio)
+    if not sindicodoCondominio:
         raise HTTPException(status_code=400, detail="Não é sindico deste Condominio")
+    
+    condominio = session.query(Condominio).filter(Condominio.id == idcondominio).first()
     
     return{"ambientes": condominio.ambientes}
 
 ####################### RESERVAS DE AMBIENTE ##############################    
-@sindico_router.post("/criarreserva/{idCondominio}")
-async def criarreserva(criarReserva:ReservaSchema, idCondominio: int ,session:Session=Depends(pegarSessao), usuario:Usuario=Depends(verificarToken)):
-    
-    if idCondominio in listaDeValoresInvalidos:
-        raise HTTPException(status_code=400, detail="id Condomio Obrigatorio!")
+@sindico_router.post("/reserva/{idCondominio}")
+async def criarreserva(criarReserva:ReservaSchema, idCondominio: int , sessaoDb:Session=Depends(pegarSessao), usuario:Usuario=Depends(verificarTokenSindico)):
 
-    sindico = session.query(SindicoCondominio).filter(SindicoCondominio.idUsuario == usuario.id, SindicoCondominio.idCondominio == idCondominio).first()
-    if not sindico:
-        raise HTTPException(status_code=400, detail="Não é sindico deste Condominio")
+    usuario.verificaCondominio(idCondominio)
     
-    verificaAmbiente = session.query(AmbientesCondominio).filter(AmbientesCondominio.id == criarReserva.idAmbiente, AmbientesCondominio.idCondominio == idCondominio).first()
+    verificaAmbiente = sessaoDb.query(AmbientesCondominio).filter(AmbientesCondominio.id == criarReserva.idAmbiente, AmbientesCondominio.idCondominio == idCondominio).first()
     if not verificaAmbiente:
         raise HTTPException(status_code=400, detail="Ambiente não cadastrado neste condominio")
     
-    verificarDataReserva = session.query(ReservaAmbiente).filter(ReservaAmbiente.dataReserva == criarReserva.dataReserva, ReservaAmbiente.idAmbiente == criarReserva.idAmbiente).first()
+    verificarDataReserva = sessaoDb.query(ReservaAmbiente).filter(ReservaAmbiente.dataReserva == criarReserva.dataReserva, ReservaAmbiente.idAmbiente == criarReserva.idAmbiente).first()
     if verificarDataReserva:
         raise HTTPException(status_code=400, detail="Já existe uma reserva para este ambiente nesta data")  
     
@@ -230,24 +211,47 @@ async def criarreserva(criarReserva:ReservaSchema, idCondominio: int ,session:Se
         criarReserva.horaFim,
         idCondominio,
         criarReserva.info)
-    session.add(reserva)
-    session.commit()
+    sessaoDb.add(reserva)
+    sessaoDb.commit()
+    sessaoDb.refresh(reserva)
     
     return {"mensagem": "Reserva criada com sucesso!",
             "Ambiente:": verificaAmbiente.nome,
             "Data da Reserva:": criarReserva.dataReserva,
             "Hora Início:": criarReserva.horaInicio,
             "Hora Fim:": criarReserva.horaFim}
+
+@sindico_router.patch("/reserva/{idCondominio}/{idReserva}")
+async def editarReserva(body:EditarReservaSchema, idCondominio:int, idReserva:int, sessaoDb:Session=Depends(pegarSessao), usuario:Usuario=Depends(verificarTokenSindico)):
     
-@sindico_router.get("/reservas/{idCondominio}")
-async def reservas(idCondominio:int, usuario:Usuario=Depends(verificarToken), sessaoDb:Session=Depends(pegarSessao)):
-    if usuario.tipo != "sindico":
-        raise HTTPException(status_code=400, detail="Acesso negado!")
+    usuario.verificaCondominio(idCondominio)
+        
+    reserva = sessaoDb.query(ReservaAmbiente).filter(ReservaAmbiente.id == idReserva).first()
     
-    sindicoCondominio = sessaoDb.query(SindicoCondominio).filter(SindicoCondominio.idCondominio == idCondominio, SindicoCondominio.idUsuario == usuario.id).first()
+    if not reserva:
+        raise HTTPException(status_code=404, detail="Reserva não encontrada")
     
-    if not sindicoCondominio:
-        raise HTTPException(status_code=400, detail="Não é sindico deste Condominio")
+    verificaData = sessaoDb.query(ReservaAmbiente).filter(ReservaAmbiente.dataReserva == body.dataReserva, ReservaAmbiente.idAmbiente == body.idAmbiente, reserva.idMorador != ReservaAmbiente.idMorador).first()
+    
+    if verificaData:
+        raise HTTPException(status_code=400, detail="Ambiente indisponivel")
+        
+    dados = body.model_dump(exclude_unset=True, exclude_none=True)
+    
+    for campo, valor in dados.items():
+        if valor not in listaDeValoresInvalidos:
+            setattr(reserva, campo, valor)  
+
+    sessaoDb.commit()
+    sessaoDb.refresh(reserva)
+    
+    return { "mensagem": "Status alterado",
+            "reserva": reserva}
+    
+@sindico_router.get("/reserva/{idCondominio}")
+async def reservas(idCondominio:int, usuario:Usuario=Depends(verificarTokenSindico), sessaoDb:Session=Depends(pegarSessao)):
+    
+    usuario.verificaCondominio(idCondominio)
     
     reservas_rows = sessaoDb.query(
         AmbientesCondominio.nome.label("Ambiente"),
@@ -264,34 +268,194 @@ async def reservas(idCondominio:int, usuario:Usuario=Depends(verificarToken), se
 
     reservas = [row._asdict() for row in [*reservas_rows,*reservas_rows2]]
     return reservas
+    
+####################### VISITAS ##############################    
 
-@sindico_router.patch("status/{idCondominio}/{idReserva}")
-async def alterarStatus(body:AlterarStatus, idCondominio:int, idReserva:int, sessaoDb:Session=Depends(pegarSessao), usuario:Usuario=Depends(verificarToken)):
-    if usuario.tipo != "sindico":
-        raise HTTPException(status_code=400, detail="Acesso negado!")
+@sindico_router.post("/visita")
+async def criarVisita(body: VisitaSchema, sessaoDb:Session=Depends(pegarSessao), usuario:Usuario=Depends(verificarTokenSindico)):
     
-    reserva = sessaoDb.query(ReservaAmbiente).filter(ReservaAmbiente.id == idReserva).first()
+    usuario.verificaCondominio(body.idCodominio)
     
-    sindicoCondominio = sessaoDb.query(SindicoCondominio).filter(SindicoCondominio.idCondominio == idCondominio, SindicoCondominio.idUsuario == usuario.id).first()
+    verificaPessoa = sessaoDb.query(Pessoas).filter(Pessoas.cpf == body.cpf).first()
     
-    if not sindicoCondominio or sindicoCondominio.idCondominio != reserva.idCondominio:
-        raise HTTPException(status_code=400, detail="Não é sindico deste Condominio")
+    if verificaPessoa:
+        visita = Visitas(verificaPessoa.id, usuario.id, "sindico", body.idCodominio , body.info, body.dataVisita, body.horaVisita)
+        sessaoDb.add(visita)
+        sessaoDb.commit()
+        sessaoDb.refresh(visita)
+        
+        return {"mensagem":"Visita criada",
+            "visita": visita}
     
-    if not reserva:
-        raise HTTPException(status_code=404, detail="Reserva não encontrada")
+    pessoa = Pessoas(body.nome, body.cpf, body.telefone)
+    sessaoDb.add(pessoa)
+    sessaoDb.flush()
+    visita = Visitas(pessoa.id, usuario.id, "sindico", body.idCodominio, body.info, body.dataVisita, body.horaVisita)
+    sessaoDb.add(visita)
+    sessaoDb.commit()
+    sessaoDb.refresh(visita) 
     
-    if (body.status in listaDeValoresInvalidos) and (body.info in listaDeValoresInvalidos):
-        raise HTTPException(status_code=422, detail="Body mal formatado")
+    return {"mensagem":"Visita criada",
+            "visita": visita}
     
-    reserva.info = body.info
-    reserva.status = body.status
+@sindico_router.patch("/editar/{idVisita}")
+async def criarVisita(idVisita:int, body: VisitaSchema, sessaoDb:Session=Depends(pegarSessao), usuario:Usuario=Depends(verificarTokenSindico)):
+    
+    usuario.verificaCondominio(body.idCodominio)
+    
+    visita = sessaoDb.query(Visitas).filter(Visitas.id == idVisita).first()
+    
+    if not visita:
+        raise HTTPException(status_code=404, detail="Visita não encontrada")
+    
+    pessoa = sessaoDb.query(Pessoas).filter(Pessoas.cpf == body.cpf).first()
+    
+    pessoaDic = {
+        "nome": body.nome,
+        "telefone": body.telefone,
+        "cpf":body.cpf
+    }
+    
+    visitaDicionio = {
+        "info": body.info,
+        "dataVisita": body.dataVisita,
+        "horaVisita": body.horaVisita  
+    }
+    
+    for campo, valor in pessoaDic.items():
+        if valor not in (None, "", "\n", "\t", 0, " "):
+            setattr(pessoa, campo, valor)
+    
+    for campo, valor in visitaDicionio.items():
+        if valor not in (None, "", "\n", "\t", 0, " "):
+            setattr(visita, campo, valor)
+    
     sessaoDb.commit()
     
-    return { "mensagem": "Status alterado",
-            "reserva": reserva.id,
-            "status": body.status,
-            "info": body.info}
+    sessaoDb.refresh(visita)
+    sessaoDb.refresh(pessoa)
     
-#@sindico_router.post("/criarvisita")
-
+    return {
+        "pessoa": pessoa,
+        "visita": visita    }
+    
+@sindico_router.get("/visitas/{idCondominio}/{apto}")
+async def visitas( idCondominio:int, apto:int ,torre: str|None=None,   sessaoDb:Session=Depends(pegarSessao), usuario:Usuario=Depends(verificarTokenSindico)):
+    
+    usuario.verificaCondominio(idCondominio)
+    
+    buscaVisitas = sessaoDb.query(Visitas).filter(Visitas.idCodominio == idCondominio, Visitas.apartamento.ilike(f"%{apto}%")).all()
+    
+    if not buscaVisitas:
+        raise HTTPException(status_code=40, detail="Nenhum apartamento encontrado!")
         
+    return buscaVisitas
+
+####################### SERVICO ##############################   
+@sindico_router.post("/servico")
+async def criarServico(body: ServicoSchema, sessaoDb:Session=Depends(pegarSessao), usuario:Usuario=Depends(verificarTokenSindico)): 
+    
+    usuario.verificaCondominio(body.idCodominio)
+    
+    novoServico = Servicos(
+                            usuario.id, body.idCodominio, body.idAmbiente,
+                            body.apartamento, body.torre, body.dataInicio,
+                            body.dataFim, body.horaInicio, body.horaFim,
+                            body.info, body.empresa)
+    
+    sessaoDb.add(novoServico)
+    sessaoDb.commit()
+    sessaoDb.refresh(novoServico)
+        
+    return {"Mensagem": "Servico criado!",
+            "Servico":novoServico}
+    
+@sindico_router.patch("/servico/{idServico}")
+async def editarServico(
+    idServico: int,
+    body: ServicoEditarSchema,
+    sessaoDb: Session = Depends(pegarSessao),
+    usuario: Usuario = Depends(verificarTokenSindico)
+):
+
+    usuario.verificaCondominio(body.idCodominio)
+
+    servico = sessaoDb.query(Servicos).filter(Servicos.id == idServico).first()
+
+    if not servico:
+        raise HTTPException(status_code=404, detail="Serviço não encontrado")
+
+    dados = body.model_dump(exclude_unset=True, exclude_none=True)
+
+    for campo, valor in dados.items():
+        if valor not in listaDeValoresInvalidos:
+            setattr(servico, campo, valor)
+
+    sessaoDb.commit()
+    sessaoDb.refresh(servico)
+
+    return {
+        "Mensagem": "Serviço atualizado com sucesso!",
+        "Servico": servico
+    }
+
+@sindico_router.get("/servico")
+async def listarServicos(
+    idCondominio: int,
+    apartamento: str | None = None,
+    torre: str | None = None,
+    empresa: str | None = None,
+    idAmbiente: int | None = None,
+    idUsuario: int | None = None,
+    status: str | None = None,
+    dataInicio: date | None = None,
+    dataFim: date | None = None,
+    sessaoDb: Session = Depends(pegarSessao),
+    usuario: Usuario = Depends(verificarTokenSindico)
+):
+    # Verifica se o usuário é síndico do condomínio
+    if not usuario.verificaCondominio(idCondominio):
+        raise HTTPException(status_code=400, detail="Não é síndico deste condomínio")
+
+    query = sessaoDb.query(Servicos).filter(Servicos.idCodominio == idCondominio)
+
+    # Aplicando filtros opcionais
+    if apartamento:
+        query = query.filter(Servicos.apartamento.ilike(f"%{apartamento}%"))
+    
+    if torre:
+        query = query.filter(Servicos.torre.ilike(f"%{torre}%"))
+    
+    if empresa:
+        query = query.filter(Servicos.empresa.ilike(f"%{empresa}%"))
+    
+    if idAmbiente:
+        query = query.filter(Servicos.idAmbiente == idAmbiente)
+    
+    if status:
+        query = query.filter(Servicos.status == status)
+    
+    if dataInicio:
+        query = query.filter(Servicos.dataInicio >= dataInicio)
+    
+    if dataFim:
+        query = query.filter(Servicos.dataFim <= dataFim)
+
+    # Ordenação por mais recente
+    query = query.order_by(Servicos.id.desc())
+
+    resultados = query.all()
+
+    return {
+        "qtd": len(resultados),
+        "servicos": resultados
+    }
+    
+####################### ENCOMENDAS ##############################   
+
+
+    
+    
+    
+    
+
