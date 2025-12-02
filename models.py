@@ -38,6 +38,8 @@ class Usuario(Base):
         )
         if not sindico:
             raise HTTPException(status_code=400, detail="Não é sindico deste Condominio.")
+        else:
+            return True
 
     
     

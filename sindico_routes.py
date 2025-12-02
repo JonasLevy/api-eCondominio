@@ -90,10 +90,7 @@ async def criarMorador(body:EditarMoradorSchema, idMoradorCondominio:int, sessio
 @sindico_router.get("/morador/{idcondominio}")
 async def moradores(idcondominio:int, nome: str | None=None, apt: str | None=None, sessaoDb:Session=Depends(pegarSessao), usuario:Usuario=Depends(verificarTokenSindico)):
     
-    sindicoDoCondominio = usuario.verificaCondominio(idcondominio)
-    
-    if not sindicoDoCondominio:
-        raise HTTPException(status_code=403, detail="Acesso negado: não é síndico deste condomínio")
+    usuario.verificaCondominio(idcondominio)
     
     if not nome or apt:
         moradores_rows = (
@@ -146,10 +143,7 @@ async def moradores(idcondominio:int, nome: str | None=None, apt: str | None=Non
 @sindico_router.post("/ambiente")
 async def criarambiente(body:AmbienteCondominioSchema, sessaoDb:Session=Depends(pegarSessao), usuario:Usuario=Depends(verificarTokenSindico)):
     
-    sindico = usuario.verificaCondominio(body.idCondominio)
-            
-    if not sindico:
-        raise HTTPException(status_code=400, detail="Não é sindico deste Condominio")
+    usuario.verificaCondominio(body.idCondominio)
     
     ambiente = AmbientesCondominio(body.idCondominio ,body.nome, body.info)
     sessaoDb.add(ambiente)
@@ -164,9 +158,7 @@ async def editarambiente(idAmbienteCondominio: int, body: AmbienteCondominioEdit
     if not ambiente:
         raise HTTPException(status_code=404, detail="Ambiente não encontrado")
     
-    sindicodoCondominio = usuario.verificaCondominio(ambiente.idCondominio)
-    if not sindicodoCondominio:
-        raise HTTPException(status_code=400, detail="Não é sindico deste Condominio")
+    usuario.verificaCondominio(ambiente.idCondominio)
     
     dados = body.model_dump(exclude_none=True, exclude_unset=True)
     for campo, valor in dados.items():
@@ -181,9 +173,7 @@ async def editarambiente(idAmbienteCondominio: int, body: AmbienteCondominioEdit
 @sindico_router.get("/ambiente/{idcondominio}")
 async def getAmbientes(idcondominio:int, session:Session=Depends(pegarSessao), usuario:Usuario=Depends(verificarTokenSindico)):
     
-    sindicodoCondominio = usuario.verificaCondominio(idcondominio)
-    if not sindicodoCondominio:
-        raise HTTPException(status_code=400, detail="Não é sindico deste Condominio")
+    usuario.verificaCondominio(idcondominio)
     
     condominio = session.query(Condominio).filter(Condominio.id == idcondominio).first()
     
