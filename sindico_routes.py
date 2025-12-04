@@ -288,7 +288,7 @@ async def criarVisita(body: VisitaSchema, sessaoDb:Session=Depends(pegarSessao),
     return {"mensagem":"Visita criada",
             "visita": visita}
     
-@sindico_router.patch("/editar/{idVisita}")
+@sindico_router.patch("/visita/{idVisita}")
 async def criarVisita(idVisita:int, body: VisitaSchema, sessaoDb:Session=Depends(pegarSessao), usuario:Usuario=Depends(verificarTokenSindico)):
     
     usuario.verificaCondominio(body.idCodominio)

@@ -119,6 +119,17 @@ class VisitaSchema(BaseModel):
     class Config:
         from_attributes = True    
 
+class VisitaEditarSchema(BaseModel):
+    nome: str | None = None
+    telefone: str | None = None
+    cpf: str | None = None
+    info: str | None = None
+    dataVisita: date | None = None
+    horaVisita: time | None = None 
+    
+    class Config:
+        from_attributes = True
+
 class ServicoSchema(BaseModel):
     idUsuario : int
     idCodominio : int
@@ -131,11 +142,11 @@ class ServicoSchema(BaseModel):
     horaInicio : time
     horaFim :time
     info : str
-    status : str
     class Config:
         from_attributes = True
 
 class PrestadorServicoSchema(BaseModel):
+    idCodominio: int
     nome:Optional[str] = None
     cpf:Optional[str] = None
     telefone: Optional[str] = None
@@ -167,3 +178,8 @@ class EncomendaSchema(BaseModel):
     class Config:
         from_attributes = True
        
+class ReservaEditarSchema(BaseModel):
+    alteração: str
+    
+    class Config:
+        from_attributes = True
