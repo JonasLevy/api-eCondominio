@@ -40,7 +40,19 @@ class Usuario(Base):
             raise HTTPException(status_code=400, detail="Não é sindico deste Condominio.")
         else:
             return True
-
+    
+    
+    def verificaCondominioMorador(self, idCondominio:int):
+        
+        morador = any(
+            item.idCondominio == idCondominio
+            for item in self.moradorCondominio
+        )
+        if not morador:
+            raise HTTPException(status_code=400, detail="Não é morador deste Condominio.")
+        else:
+            return True
+    
     
     
     def __init__(self, nome, cpf, telefone, email, senha, tipo):
@@ -187,6 +199,7 @@ class Servicos(Base):
     status = Column("status", String, default="pendente")
     empresa = Column("empresa", String, nullable=True)
     aprovado = Column("aprovado", String, default="ok")
+    prestadorServico = relationship("PrestadorServico", back_populates="servicos")
     
     def __init__(self, idUsuario, idCodominio, idAmbiente, apartamento, torre, dataInicio, dataFim, horaInicio, horaFim, info, empresa):
         self.idUsuario = idUsuario
@@ -207,6 +220,7 @@ class PrestadorServico(Base):
     id= Column("id", Integer, autoincrement=True, primary_key=True)
     idPessoa= Column("id_pessoa", ForeignKey("pessoas.id"))
     idServico= Column("id_servico", ForeignKey("servicos.id"))
+    servicos= relationship("Servicos", back_populates="prestadorServico")
     
     def __init__(self, idPessoa, idServico):
         self.idPessoa = idPessoa    
